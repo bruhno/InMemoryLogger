@@ -20,5 +20,5 @@ Collect, inspect, and assert logs without external dependencies.
 Add the project reference or include the NuGet package (if published):
 
 ```bash
-dotnet add package InMemoryLogger
+dotnet add package Brukhno.InMemoryLogger
 
