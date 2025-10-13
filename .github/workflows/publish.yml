@@ -20,14 +20,24 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      # Извлекаем версию из тега (v1.2.3 -> 1.2.3)
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          REF=${GITHUB_REF_NAME:-${GITHUB_REF#refs/tags/}}
+          VERSION=${REF#v}
+          echo "Detected version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Restore dependencies
         run: dotnet restore
 
       - name: Build project
         run: dotnet build --configuration Release --no-restore
 
+      # Передаём версию из тега при упаковке
       - name: Pack NuGet package
-        run: dotnet pack --configuration Release --no-build --output ./artifacts
+        run: dotnet pack --configuration Release --no-build --output ./artifacts /p:PackageVersion=${{ steps.get_version.outputs.version }}
 
       - name: Publish to NuGet.org
         run: dotnet nuget push "artifacts/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
