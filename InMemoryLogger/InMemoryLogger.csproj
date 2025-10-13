@@ -11,11 +11,11 @@
   </ItemGroup>
 
   <PropertyGroup>
+	<PackageId>Brukhno.InMemoryLogger</PackageId>
   	<TargetFramework>net9.0</TargetFramework>
   	<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   	<Version>1.0.0</Version>
-  	<Authors>gennady.brukhno</Authors>  	
-  	<PackageId>InMemoryLogger</PackageId>
+  	<Authors>gennady.brukhno</Authors>  	  	
   	<Description>Lightweight in-memory logger for .NET applications.</Description>
   	<PackageLicenseExpression>MIT</PackageLicenseExpression>
   	<RepositoryUrl>https://github.com/bruhno/InMemoryLogger</RepositoryUrl>
