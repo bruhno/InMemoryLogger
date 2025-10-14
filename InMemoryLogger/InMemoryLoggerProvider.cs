@@ -1,43 +1,59 @@
-using System.Collections.Concurrent;
-
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 
 namespace InMemoryLogger;
 
 /// <summary>
-/// Простейшая реализация <see cref="ILoggerProvider"/>, 
-/// которая сохраняет записи логов в памяти.
+/// Потокобезопасный провайдер логов, сохраняющий все записи в памяти.
 /// </summary>
-public sealed partial class InMemoryLoggerProvider : ILoggerProvider
+/// <remarks>
+/// Подходит для тестирования и отладки, когда ошибки не выбрасываются напрямую,
+/// а записываются только в лог.
+/// </remarks>
+public sealed class InMemoryLoggerProvider: ILoggerProvider
 {
     /// <summary>
-    /// Создаёт новый экземпляр <see cref="InMemoryLoggerProvider"/>.
+    /// Возвращает все записи логов, накопленные данным провайдером.
+    /// </summary>
+    public IReadOnlyCollection<InMemoryLogEntry> LogEntries => [.. _logs];
+
+    /// <summary>
+    /// Создаёт новый экземпляр <see cref="InMemoryLoggerProvider"/> 
+    /// с пустой потокобезопасной коллекцией логов.
+    /// </summary>
+    public InMemoryLoggerProvider() : this([]) { }
+
+    /// <summary>
+    /// Проверяет, содержит ли журнал логов исключения, 
+    /// и выбрасывает первое найденное.
+    /// </summary>
+    /// <remarks>
+    /// Использует метод <see cref="CapturedLogsException.ThrowIfContainsException(IEnumerable{InMemoryLogEntry})"/>.
+    /// Полезен при тестировании: позволяет убедиться, что в ходе выполнения
+    /// не было зафиксировано ошибок.
+    /// </remarks>
+    /// <exception cref="Exception">
+    /// Выбрасывается, если хотя бы одно исключение присутствует среди логов.
+    /// </exception>
+    public void EnsureNoExceptions() =>
+        CapturedLogsException.ThrowIfContainsException(_logs);
+
+    /// <inheritdoc />
+    public ILogger CreateLogger(string categoryName) => new InMemoryLogger(_logs);
+
+    /// <inheritdoc />
+    public void Dispose() { }
+
+    /// <summary>
+    /// Инициализирует провайдер с указанной коллекцией логов.
     /// </summary>
     /// <param name="logs">
-    /// Потокобезопасная коллекция для хранения логов.
+    /// Потокобезопасная коллекция, в которую будут записываться логи.
     /// </param>
-    /// <exception cref="ArgumentNullException">
-    /// Выбрасывается, если <paramref name="logs"/> равен <c>null</c>.
-    /// </exception>
-    public InMemoryLoggerProvider(ConcurrentBag<InMemoryLogEntry> logs)
+    private InMemoryLoggerProvider(ConcurrentBag<InMemoryLogEntry> logs)
     {
         _logs = logs ?? throw new ArgumentNullException(nameof(logs));
     }
-
-    /// <summary>
-    /// Создаёт новый экземпляр <see cref="ILogger"/>.
-    /// </summary>
-    /// <param name="categoryName">
-    /// Имя категории логгера. В данной реализации не используется.
-    /// </param>
-    /// <returns>Новый экземпляр <see cref="ILogger"/>.</returns>
-    public ILogger CreateLogger(string categoryName) => new InMemoryLogger(_logs);
-
-    /// <summary>
-    /// Освобождает ресурсы, занятые данным провайдером логов.
-    /// В данной реализации освобождать нечего.
-    /// </summary>
-    public void Dispose() { }
 
     private readonly ConcurrentBag<InMemoryLogEntry> _logs;
 }
