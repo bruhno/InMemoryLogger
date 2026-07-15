@@ -4,39 +4,59 @@ using System.Collections.Concurrent;
 namespace InMemoryLogger;
 
 /// <summary>
-/// Потокобезопасный провайдер логов, сохраняющий все записи в памяти.
+/// In-memory logger provider for testing.
 /// </summary>
 /// <remarks>
-/// Подходит для тестирования и отладки, когда ошибки не выбрасываются напрямую,
-/// а записываются только в лог.
+/// Stores all log entries in a thread-safe collection.
 /// </remarks>
 public sealed class InMemoryLoggerProvider: ILoggerProvider
 {
     /// <summary>
-    /// Возвращает все записи логов, накопленные данным провайдером.
+    /// Gets all captured log entries.
     /// </summary>
     public IReadOnlyCollection<InMemoryLogEntry> LogEntries => [.. _logs];
 
     /// <summary>
-    /// Создаёт новый экземпляр <see cref="InMemoryLoggerProvider"/> 
-    /// с пустой потокобезопасной коллекцией логов.
+    /// Initializes a new instance of the <see cref="InMemoryLoggerProvider"/> class.
     /// </summary>
     public InMemoryLoggerProvider() : this([]) { }
 
     /// <summary>
-    /// Проверяет, содержит ли журнал логов исключения, 
-    /// и выбрасывает первое найденное.
+    /// Throws if any logged exception is found.
     /// </summary>
-    /// <remarks>
-    /// Использует метод <see cref="CapturedLogsException.ThrowIfContainsException(IEnumerable{InMemoryLogEntry})"/>.
-    /// Полезен при тестировании: позволяет убедиться, что в ходе выполнения
-    /// не было зафиксировано ошибок.
-    /// </remarks>
-    /// <exception cref="Exception">
-    /// Выбрасывается, если хотя бы одно исключение присутствует среди логов.
+    /// <exception cref="CapturedLogsException">
+    /// One or more log entries contain an exception.
     /// </exception>
     public void EnsureNoExceptions() =>
         CapturedLogsException.ThrowIfContainsException(_logs);
+
+    /// <summary>
+    /// Throws if any logged exception is not one of the specified types.
+    /// </summary>
+    /// <param name="exceptionTypes">
+    /// Exception types to ignore.
+    /// </param>
+    /// <exception cref="CapturedLogsException">
+    /// One or more unexpected exceptions were found.
+    /// </exception>
+    public void EnsureNoExceptionsExcept(params Type[] exceptionTypes)
+    {
+        ArgumentNullException.ThrowIfNull(exceptionTypes);
+
+        var logsWithExceptions = _logs
+            .Where(entry => 
+                entry.Exception is not null
+                &&  !exceptionTypes.Any(t=>t.IsAssignableFrom(entry.Exception.GetType())))
+            .ToList();            
+
+        CapturedLogsException.ThrowIfContainsException(logsWithExceptions);
+    }
+
+    /// <summary>
+    /// Throws if any logged exception except cancellation exceptions is found.
+    /// </summary>
+    public void EnsureNoExceptionsExceptCancellation() =>
+        EnsureNoExceptionsExcept(typeof(OperationCanceledException));
 
     /// <inheritdoc />
     public ILogger CreateLogger(string categoryName) => new InMemoryLogger(_logs);
@@ -44,15 +64,12 @@ public sealed class InMemoryLoggerProvider: ILoggerProvider
     /// <inheritdoc />
     public void Dispose() { }
 
-    /// <summary>
-    /// Инициализирует провайдер с указанной коллекцией логов.
-    /// </summary>
-    /// <param name="logs">
-    /// Потокобезопасная коллекция, в которую будут записываться логи.
-    /// </param>
+
     private InMemoryLoggerProvider(ConcurrentBag<InMemoryLogEntry> logs)
     {
-        _logs = logs ?? throw new ArgumentNullException(nameof(logs));
+        ArgumentNullException.ThrowIfNull(logs);
+
+        _logs = logs;
     }
 
     private readonly ConcurrentBag<InMemoryLogEntry> _logs;
